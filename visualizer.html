@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>25K Neuron Sparse SNN Activity Monitor</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Load Simulation Data -->
+    <script src="simulation_results.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #0a0b10;
+            --bg-surface: rgba(20, 22, 35, 0.7);
+            --bg-surface-border: rgba(255, 255, 255, 0.08);
+            --color-text: #f0f2f5;
+            --color-text-muted: #8e95a5;
+            --color-primary: #00f0ff;
+            --color-primary-glow: rgba(0, 240, 255, 0.4);
+            --color-secondary: #bd00ff;
+            --color-success: #39ff14;
+            --color-error: #ff3b30;
+            --color-warning: #ffcc00;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--color-text);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            padding: 2rem;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(189, 0, 255, 0.05) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(0, 240, 255, 0.05) 0px, transparent 50%);
+        }
+
+        header {
+            max-width: 1400px;
+            margin: 0 auto 2rem auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--bg-surface-border);
+            padding-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--color-text-muted);
+            font-size: 1rem;
+            margin-top: 0.25rem;
+        }
+
+        .badge {
+            background: rgba(57, 255, 20, 0.1);
+            border: 1px solid var(--color-success);
+            color: var(--color-success);
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+        }
+
+        /* Metrics */
+        .metrics-container {
+            grid-column: span 12;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--bg-surface-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 240, 255, 0.25);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .metric-title {
+            color: var(--color-text-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            font-family: 'Space Grotesk', sans-serif;
+            word-break: break-all;
+        }
+
+        .metric-savings {
+            color: var(--color-success);
+            text-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+        }
+
+        .metric-dense {
+            color: var(--color-error);
+        }
+
+        .metric-neuro {
+            color: var(--color-primary);
+            text-shadow: 0 0 10px var(--color-primary-glow);
+        }
+
+        /* Playback Controls */
+        .controls-card {
+            grid-column: span 12;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            padding: 1.2rem 2rem;
+        }
+
+        .playback-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .playback-btn {
+            min-width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            padding: 0;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--bg-surface-border);
+            color: var(--color-text);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .playback-btn:hover {
+            border-color: var(--color-primary);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .playback-btn.active {
+            background: var(--color-primary);
+            color: var(--bg-base);
+            border-color: var(--color-primary);
+            box-shadow: 0 0 15px var(--color-primary-glow);
+        }
+
+        .timeline-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .timeline-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            box-shadow: 0 0 10px var(--color-primary-glow);
+            transition: transform 0.1s;
+        }
+
+        .timeline-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+        }
+
+        .timeline-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--color-text-muted);
+            font-weight: 600;
+        }
+
+        /* 25K Visual Grid Panels */
+        .visualizer-panels {
+            grid-column: span 12;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        .panel-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--bg-surface-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        canvas.grid-canvas {
+            background: #020306;
+            border: 1px solid #111522;
+            border-radius: 4px;
+            image-rendering: pixelated;
+        }
+
+        /* Graph columns */
+        .col-left {
+            grid-column: span 8;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .col-right {
+            grid-column: span 4;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .chart-card {
+            height: 380px;
+            position: relative;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .chart-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--bg-surface-border);
+            color: var(--color-text);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        .chart-container {
+            position: relative;
+            height: calc(100% - 40px);
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>25K Neuron Neuromorphic Monitor</h1>
+            <p class="subtitle">Real-Time Event-Driven Sparse Activity Visualizer (25,000 Inputs & LIF Neurons)</p>
+        </div>
+        <div class="badge">99.9996% Synaptic Sparsity</div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Metrics -->
+        <div class="metrics-container">
+            <div class="card">
+                <div class="metric-title">Energy Savings</div>
+                <div class="metric-value metric-savings" id="val-savings">--%</div>
+            </div>
+            <div class="card">
+                <div class="metric-title">Neuromorphic Core</div>
+                <div class="metric-value metric-neuro" id="val-neuro">-- u</div>
+            </div>
+            <div class="card">
+                <div class="metric-title">Conventional Dense</div>
+                <div class="metric-value metric-dense" style="font-size: 1.5rem; padding-top: 0.5rem;" id="val-dense">-- u</div>
+            </div>
+            <div class="card">
+                <div class="metric-title">Avoided Synapse Ops</div>
+                <div class="metric-value" style="color: var(--color-warning);" id="val-sparsity">--%</div>
+            </div>
+        </div>
+
+        <!-- Controls (Modified for Webcam Live Stream and sensitivity tuning) -->
+        <div class="card controls-card">
+            <div class="playback-buttons">
+                <button class="playback-btn" id="btn-play">▶</button>
+            </div>
+            <div class="timeline-container">
+                <div class="timeline-labels">
+                    <span id="label-current-step">Camera Mode: Stopped (Press play to start)</span>
+                    <span id="label-spike-events" style="color: var(--color-primary)">Event Threshold (Sensitivity): 30</span>
+                </div>
+                <input type="range" class="timeline-slider" id="slider-timeline" min="10" max="100" value="30">
+            </div>
+        </div>
+
+        <!-- Canvas Visualizer Panels (Now 3 columns) -->
+        <div class="visualizer-panels">
+            <!-- Column 1: Live Event Camera Feed -->
+            <div class="card">
+                <div class="panel-title">
+                    <span>Silicon Event Camera Feed</span>
+                    <span style="color: var(--color-primary)" id="webcam-status">Ready</span>
+                </div>
+                <div class="canvas-container" style="position: relative;">
+                    <video id="webcam" autoplay muted playsinline style="width: 316px; height: 316px; object-fit: cover; border-radius: 4px; border: 1px solid var(--color-primary); box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); transform: scaleX(-1);"></video>
+                    <!-- Hidden helper canvas for pixel comparisons -->
+                    <canvas id="canvas-helper" width="158" height="158" style="display: none;"></canvas>
+                </div>
+            </div>
+
+            <!-- Column 2: Input Layer Activity (25K motion spikes) -->
+            <div class="card">
+                <div class="panel-title">
+                    <span>Input Layer Activity (25,000 channels)</span>
+                    <span style="color: var(--color-secondary)" id="label-input-count">0 spikes</span>
+                </div>
+                <div class="canvas-container">
+                    <canvas class="grid-canvas" id="canvas-inputs" width="316" height="316"></canvas>
+                </div>
+            </div>
+
+            <!-- Column 3: Neuron Array Firing (25K LIF core) -->
+            <div class="card">
+                <div class="panel-title">
+                    <span>Neuron Array Firing (25,000 LIF core)</span>
+                    <span style="color: var(--color-success)" id="label-output-count">0 spikes</span>
+                </div>
+                <div class="canvas-container">
+                    <canvas class="grid-canvas" id="canvas-neurons" width="316" height="316"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="col-left">
+            <div class="card chart-card">
+                <div class="chart-header">
+                    <h2 class="chart-title">Membrane Potential (Selected Neuron)</h2>
+                    <select id="select-neuron">
+                        <option value="0">Neuron 0</option>
+                        <option value="1">Neuron 1</option>
+                        <option value="2">Neuron 2</option>
+                        <option value="3">Neuron 3</option>
+                        <option value="4">Neuron 4</option>
+                        <option value="8">Neuron 8</option>
+                        <option value="12">Neuron 12</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-potential"></canvas>
+                </div>
+            </div>
+
+            <div class="card chart-card">
+                <div class="chart-header">
+                    <h2 class="chart-title">Raster Plot (First 250 Neurons)</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-raster"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-right">
+            <div class="card chart-card" style="height: 100%;">
+                <div class="chart-header">
+                    <h2 class="chart-title">Dynamic Energy Comparison</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-energy"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let isPlaying = false;
+        let selectedNeuron = 0;
+        let motionThreshold = 30;
+        
+        let potentialChart = null;
+        let rasterChart = null;
+        let energyChart = null;
+
+        // Web camera handles
+        const video = document.getElementById('webcam');
+        const canvasHelper = document.getElementById('canvas-helper');
+        const ctxHelper = canvasHelper.getContext('2d');
+        const webcamStatus = document.getElementById('webcam-status');
+        
+        let prevFrameData = new Uint8Array(158 * 158);
+        let stream = null;
+        let animId = null;
+
+        // LIF SNN Engine State
+        const NUM_NEURONS = 25000;
+        const LIF_THRESHOLD = 200;
+        const LIF_LEAK = 0.85; // Leak coefficient
+        const membranePotentials = new Float32Array(NUM_NEURONS);
+        const refractoryCounters = new Int32Array(NUM_NEURONS);
+        
+        // Phosphor decay states for grids
+        const inputDecay = new Float32Array(NUM_NEURONS);
+        const outputDecay = new Float32Array(NUM_NEURONS);
+
+        const canvasInputs = document.getElementById('canvas-inputs');
+        const canvasNeurons = document.getElementById('canvas-neurons');
+        const ctxInputs = canvasInputs.getContext('2d');
+        const ctxNeurons = canvasNeurons.getContext('2d');
+
+        // Dynamic chart rolling history states (last 50 frames)
+        const HISTORY_LIMIT = 50;
+        let currentStep = 0;
+        const potentialHistory = Array(HISTORY_LIMIT).fill(0);
+        const spikeHistory = Array(HISTORY_LIMIT).fill(null);
+        const labelsHistory = Array.from({length: HISTORY_LIMIT}, (_, i) => i);
+        
+        // Raster plot coordinates storage (x = step, y = neuron_idx)
+        let inputRasterPoints = [];
+        let outputRasterPoints = [];
+
+        // Clear canvas
+        function clearCanvas(ctx) {
+            ctx.fillStyle = '#020306';
+            ctx.fillRect(0, 0, 316, 316);
+        }
+
+        // Draw Canvas Grid representing 25K sparse activity
+        function drawActivityGrid(ctx, decayArray, activeIndices, colorRGB) {
+            clearCanvas(ctx);
+
+            // 1. Decay the phosphor trail
+            for (let i = 0; i < NUM_NEURONS; i++) {
+                decayArray[i] = Math.max(0, decayArray[i] - 0.2); // Fades in ~5 steps
+            }
+
+            // 2. Mark active spikes
+            activeIndices.forEach(idx => {
+                if (idx >= 0 && idx < NUM_NEURONS) {
+                    decayArray[idx] = 1.0;
+                }
+            });
+
+            // 3. Draw grid (158x158 grid = 24,964 cells)
+            for (let r = 0; r < 158; r++) {
+                for (let c = 0; c < 158; c++) {
+                    const idx = r * 158 + c;
+                    if (idx < NUM_NEURONS) {
+                        const intensity = decayArray[idx];
+                        if (intensity > 0) {
+                            ctx.fillStyle = `rgba(${colorRGB}, ${intensity})`;
+                            ctx.fillRect(c * 2, r * 2, 2, 2);
+                        } else {
+                            // Soft background pixel grid
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.01)';
+                            ctx.fillRect(c * 2, r * 2, 1, 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Initialize Web Camera Stream
+        async function initCamera() {
+            try {
+                webcamStatus.innerText = "Requesting Access...";
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 316, height: 316, facingMode: "user" }
+                });
+                video.srcObject = stream;
+                webcamStatus.innerText = "Active";
+                webcamStatus.style.color = "var(--color-success)";
+                return true;
+            } catch (err) {
+                console.error(err);
+                webcamStatus.innerText = "Access Denied";
+                webcamStatus.style.color = "var(--color-error)";
+                alert("Could not access webcam. Please verify permissions.");
+                return false;
+            }
+        }
+
+        // Event-Based Temporal Difference Sensor & LIF SNN Processing Loop
+        function SNN_Execution_Loop() {
+            if (!isPlaying) return;
+
+            // 1. Capture current frame from Video element to hidden 158x158 canvas
+            ctxHelper.save();
+            ctxHelper.translate(158, 0);
+            ctxHelper.scale(-1, 1); // Flip horizontally for mirror effect
+            ctxHelper.drawImage(video, 0, 0, 158, 158);
+            ctxHelper.restore();
+
+            const imgData = ctxHelper.getImageData(0, 0, 158, 158);
+            const pixels = imgData.data;
+
+            const activeInputs = [];
+            const activeOutputs = [];
+
+            // 2. Event Camera Simulation: Frame-to-Frame Temporal Change Detection
+            for (let i = 0; i < 158 * 158; i++) {
+                const r = pixels[i * 4];
+                const g = pixels[i * 4 + 1];
+                const b = pixels[i * 4 + 2];
+                // Luminosity formula
+                const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                
+                const diff = Math.abs(gray - prevFrameData[i]);
+                if (diff > motionThreshold) {
+                    activeInputs.push(i);
+                }
+                prevFrameData[i] = gray;
+            }
+
+            // 3. LIF Neural Network Engine Update
+            // Apply leakage decay and decrement refractory periods
+            for (let j = 0; j < NUM_NEURONS; j++) {
+                membranePotentials[j] = Math.max(0, membranePotentials[j] * LIF_LEAK);
+                if (refractoryCounters[j] > 0) {
+                    refractoryCounters[j]--;
+                }
+            }
+
+            // Synaptic transmission: 1% sparse connection (each input maps to 3 target neurons)
+            activeInputs.forEach(inIdx => {
+                // Synapse routing maps: 
+                // Connect inIdx to: inIdx, (inIdx*3 + 17)%25000, (inIdx*7 + 101)%25000
+                const targets = [
+                    inIdx,
+                    (inIdx * 3 + 17) % NUM_NEURONS,
+                    (inIdx * 7 + 101) % NUM_NEURONS
+                ];
+                
+                targets.forEach(targetIdx => {
+                    if (refractoryCounters[targetIdx] === 0) {
+                        membranePotentials[targetIdx] += 60; // Synaptic weight = 60 mV
+                    }
+                });
+            });
+
+            // Threshold checking & firing events
+            for (let j = 0; j < NUM_NEURONS; j++) {
+                if (membranePotentials[j] >= LIF_THRESHOLD) {
+                    activeOutputs.push(j);
+                    membranePotentials[j] = 0; // Reset V_m
+                    refractoryCounters[j] = 4; // Refractory period steps
+                }
+            }
+
+            // 4. Update canvases grids
+            drawActivityGrid(ctxInputs, inputDecay, activeInputs, '0, 240, 255');
+            drawActivityGrid(ctxNeurons, outputDecay, activeOutputs, '57, 255, 20');
+
+            // 5. Update metric values on the dashboard
+            const denseOps = NUM_NEURONS * NUM_NEURONS; // 625 Million
+            const sparseOps = activeInputs.length * 3; // Only 3 synapse ops per active spike
+            const savings = ((1.0 - (sparseOps / denseOps)) * 100);
+            
+            const neuroEnergy = (sparseOps * 0.05).toFixed(2); // 0.05 u per synaptic operation
+            const denseEnergy = (denseOps * 0.05).toLocaleString(undefined, {maximumFractionDigits: 0});
+            
+            document.getElementById('val-savings').innerText = savings.toFixed(4) + '%';
+            document.getElementById('val-neuro').innerText = parseFloat(neuroEnergy).toLocaleString() + ' u';
+            document.getElementById('val-dense').innerText = denseEnergy + ' u';
+            document.getElementById('val-sparsity').innerText = savings.toFixed(4) + '%';
+            
+            document.getElementById('label-input-count').innerText = `${activeInputs.length} spikes`;
+            document.getElementById('label-output-count').innerText = `${activeOutputs.length} fires`;
+
+            // 6. Update Chart histories
+            currentStep = (currentStep + 1) % HISTORY_LIMIT;
+            
+            // Rolling history for selected neuron potential
+            potentialHistory.push(membranePotentials[selectedNeuron]);
+            potentialHistory.shift();
+            
+            const hasSpiked = activeOutputs.includes(selectedNeuron);
+            spikeHistory.push(hasSpiked ? LIF_THRESHOLD : null);
+            spikeHistory.shift();
+
+            // Filter out old points from raster coordinates and increment
+            inputRasterPoints = inputRasterPoints.filter(p => p.x > 0).map(p => ({ x: p.x - 1, y: p.y }));
+            outputRasterPoints = outputRasterPoints.filter(p => p.x > 0).map(p => ({ x: p.x - 1, y: p.y }));
+
+            // Add new raster event points (filtered to first 250 channels)
+            activeInputs.forEach(ch => {
+                if (ch < 250) inputRasterPoints.push({ x: HISTORY_LIMIT - 1, y: ch });
+            });
+            activeOutputs.forEach(ch => {
+                if (ch < 250) outputRasterPoints.push({ x: HISTORY_LIMIT - 1, y: ch });
+            });
+
+            // Update chart renderings
+            potentialChart.update('none');
+            rasterChart.update('none');
+            
+            // Update Energy Chart dynamically
+            energyChart.data.datasets[0].data = [Math.log10(denseOps * 0.05), Math.log10(sparseOps > 0 ? sparseOps * 0.05 : 1)];
+            energyChart.update('none');
+
+            // Trigger next loop iteration
+            animId = requestAnimationFrame(SNN_Execution_Loop);
+        }
+
+        // Potential Chart Initialization
+        function initPotentialChart() {
+            const ctx = document.getElementById('chart-potential').getContext('2d');
+            potentialChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labelsHistory,
+                    datasets: [
+                        {
+                            label: `Neuron ${selectedNeuron} Potential (V_m)`,
+                            data: potentialHistory,
+                            borderColor: '#00f0ff',
+                            borderWidth: 2,
+                            backgroundColor: 'rgba(0, 240, 255, 0.05)',
+                            fill: true,
+                            tension: 0.1,
+                            pointRadius: 1
+                        },
+                        {
+                            label: 'Spike Fire Event',
+                            data: spikeHistory,
+                            borderColor: '#39ff14',
+                            borderWidth: 0,
+                            pointBackgroundColor: '#39ff14',
+                            pointRadius: 6,
+                            showLine: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: -10,
+                            max: LIF_THRESHOLD + 50,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8e95a5' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8e95a5' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#f0f2f5' } }
+                    }
+                }
+            });
+        }
+
+        // Scatter Raster Plot Initialization
+        function initRasterPlot() {
+            const ctx = document.getElementById('chart-raster').getContext('2d');
+            rasterChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Inputs (Channels 0-249)',
+                            data: inputRasterPoints,
+                            backgroundColor: '#bd00ff',
+                            pointRadius: 2
+                        },
+                        {
+                            label: 'Neurons (0-249)',
+                            data: outputRasterPoints,
+                            backgroundColor: '#39ff14',
+                            pointRadius: 4,
+                            pointStyle: 'rectRot'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        y: {
+                            min: -5,
+                            max: 255,
+                            title: { display: true, text: 'Neuron Index', color: '#8e95a5' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8e95a5', stepSize: 50 }
+                        },
+                        x: {
+                            min: 0,
+                            max: HISTORY_LIMIT,
+                            title: { display: true, text: 'Frame History', color: '#8e95a5' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8e95a5' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#f0f2f5' } }
+                    }
+                }
+            });
+        }
+
+        // Energy Bar Chart Initialization
+        function initEnergyChart() {
+            const ctx = document.getElementById('chart-energy').getContext('2d');
+            energyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Conventional Dense', 'Neuromorphic Core'],
+                    datasets: [{
+                        label: 'Energy (log scale)',
+                        data: [Math.log10(NUM_NEURONS * NUM_NEURONS * 0.05), 0],
+                        backgroundColor: ['rgba(255, 59, 48, 0.7)', 'rgba(57, 255, 20, 0.7)'],
+                        borderColor: ['#ff3b30', '#39ff14'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            title: { display: true, text: 'Order of Magnitude (Log10)', color: '#8e95a5' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8e95a5' }
+                        },
+                        x: {
+                            ticks: { color: '#8e95a5' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Play/Pause button event listener
+        const btnPlay = document.getElementById('btn-play');
+        btnPlay.addEventListener('click', async () => {
+            if (isPlaying) {
+                // Pause simulation
+                isPlaying = false;
+                cancelAnimationFrame(animId);
+                btnPlay.innerText = '▶';
+                btnPlay.classList.remove('active');
+                document.getElementById('label-current-step').innerText = "Camera Mode: Paused";
+            } else {
+                // Initialize camera if not done yet
+                if (!stream) {
+                    const success = await initCamera();
+                    if (!success) return;
+                }
+                // Start simulation
+                isPlaying = true;
+                btnPlay.innerText = '⏸';
+                btnPlay.classList.add('active');
+                document.getElementById('label-current-step').innerText = "Camera Mode: Running (Live)";
+                SNN_Execution_Loop();
+            }
+        });
+
+        // Threshold configuration slider
+        const sliderTimeline = document.getElementById('slider-timeline');
+        sliderTimeline.addEventListener('input', (e) => {
+            motionThreshold = parseInt(e.target.value);
+            document.getElementById('label-spike-events').innerText = `Event Threshold (Sensitivity): ${motionThreshold}`;
+        });
+
+        // Selected neuron dropdown listener
+        document.getElementById('select-neuron').addEventListener('change', (e) => {
+            selectedNeuron = parseInt(e.target.value);
+            potentialChart.data.datasets[0].label = `Neuron ${selectedNeuron} Potential (V_m)`;
+            potentialChart.update();
+        });
+
+        // Initialize App Charts
+        initPotentialChart();
+        initRasterPlot();
+        initEnergyChart();
+
+        // Clear display grids at start
+        clearCanvas(ctxInputs);
+        clearCanvas(ctxNeurons);
+    </script>
+</body>
+</html>
