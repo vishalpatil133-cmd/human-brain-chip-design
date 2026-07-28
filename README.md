@@ -1,5 +1,7 @@
 # SNN Multi-Model Brain Chip Simulator & RTL Design
 
+[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+
 **Architect & Developer**: [Vishal Patil](https://www.linkedin.com/in/vishal-patil-928600340/) | **GitHub**: [@vishalpatil133-cmd](https://github.com/vishalpatil133-cmd)
 
 Inspired by the human brain, this project models and simulates a digital neuromorphic processor core. Modern deep learning hardware (like GPUs and TPUs) is bottlenecked by the von Neumann memory wall and consumes high levels of energy by executing dense, continuous **Multiply-Accumulate (MAC)** operations. 
@@ -107,3 +109,11 @@ Compile the top-level MCM Verilog files:
 # - rtl/gpu_chiplet.v
 # - rtl/chiplet_link.v
 ```
+
+---
+
+## License
+
+This project is licensed under the **GNU General Public License v2.0 (GPL-2.0)** - the same open-source license used by Linux. 
+
+See the [LICENSE](LICENSE) file for full details.
